@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+.agentbase/
+
+# Không đẩy bộ skill AgentBase và credential lên repo nộp bài
+greennode-agentbase-skills/
+.claude/
+.greennode.json
+*.docx
+*.pdf
