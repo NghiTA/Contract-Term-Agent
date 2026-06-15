@@ -11,5 +11,7 @@ venv/
 greennode-agentbase-skills/
 .claude/
 .greennode.json
-*.docx
-*.pdf
+
+# Chặn docx/pdf ở thư mục gốc, nhưng VẪN cho phép file hợp đồng trong contracts/
+/*.docx
+/*.pdf
