@@ -83,9 +83,12 @@ def load_contract_documents(contract_path: Path) -> List[dict]:
     """
     docs: List[dict] = []
     if contract_path.is_dir():
+        # Sắp theo tên file cho ổn định. KHÔNG dựa vào mtime để suy ra "mới nhất"
+        # vì thời gian sửa file không phản ánh đúng văn bản gia hạn mới nhất.
+        # Việc xác định văn bản gia hạn mới nhất do model làm dựa trên NGÀY trong nội dung.
         files = sorted(
             [p for p in contract_path.iterdir() if p.suffix.lower() in SUPPORTED_EXTS],
-            key=lambda p: p.stat().st_mtime,
+            key=lambda p: p.name,
         )
     else:
         files = [contract_path]
@@ -111,8 +114,17 @@ SYSTEM_PROMPT = """Bạn là trợ lý pháp lý chuyên trích xuất thông ti
 NGUYÊN TẮC BẮT BUỘC:
 - KHÔNG suy diễn, KHÔNG bịa. Chỉ dùng nội dung có thật trong văn bản.
 - Nếu một trường không xác định được rõ ràng, để giá trị null và ghi lý do vào "ghi_chu".
-- Khi có nhiều văn bản (hợp đồng gốc + phụ lục/văn bản gia hạn), lấy thời hạn theo
-  văn bản gia hạn MỚI NHẤT có hiệu lực.
+- Khi có nhiều văn bản (hợp đồng gốc + phụ lục/văn bản gia hạn), các văn bản KHÔNG
+  được sắp theo thứ tự thời gian. Bạn PHẢI tự xác định văn bản gia hạn MỚI NHẤT dựa
+  trên NGÀY ghi TRONG NỘI DUNG từng văn bản (ngày ký, ngày hiệu lực của phụ lục, ngày
+  gia hạn đến...), KHÔNG dựa vào thứ tự liệt kê hay tên file.
+- Quy trình tính "ngay_het_hieu_luc":
+  1) Từ hợp đồng gốc, tính ngày hết hạn ban đầu (ngày hiệu lực + thời hạn).
+  2) Nếu có phụ lục/văn bản gia hạn, dùng văn bản gia hạn mới nhất (theo ngày trong
+     nội dung) để xác định ngày hết hiệu lực CUỐI CÙNG. Nếu phụ lục ghi "gia hạn đến
+     ngày X" thì ngay_het_hieu_luc = X.
+  3) Nếu các văn bản mâu thuẫn hoặc không rõ văn bản nào mới nhất → để null và nêu lý
+     do trong "ghi_chu".
 - Trả về DUY NHẤT một object JSON hợp lệ, không kèm giải thích ngoài JSON.
 
 Định dạng JSON cần trả về:
@@ -140,8 +152,9 @@ def build_user_prompt(contract_name: str, docs: List[dict], today: date) -> str:
     return (
         f"Hôm nay là {today.isoformat()}.\n"
         f"Hợp đồng: {contract_name}\n"
-        f"Số lượng văn bản kèm theo: {len(docs)} "
-        f"(văn bản sau là phụ lục/gia hạn mới hơn nếu có).\n\n"
+        f"Số lượng văn bản kèm theo: {len(docs)} (liệt kê theo tên file, "
+        f"KHÔNG theo thứ tự thời gian — hãy tự xác định văn bản gia hạn mới nhất "
+        f"dựa trên NGÀY ghi trong nội dung).\n\n"
         f"{joined}\n\n"
         "Hãy trích xuất theo đúng định dạng JSON đã quy định."
     )
